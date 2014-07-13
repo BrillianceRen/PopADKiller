@@ -7,11 +7,16 @@
 
 #include "ConfigManager.h"
 #include <vector>
+#include "afxwin.h"
 
 class ListItem
 {
 public:
-	ListItem(){};
+	ListItem()
+	{
+		bKeyword = false;
+		lLastKillTime = 0;
+	};
 	~ListItem(){};
 public:
 	CString csTitle;
@@ -20,7 +25,8 @@ public:
 	CString csProcessId;
 	CString csProcessName;
 	CString csProcessPath;
-	BOOL bKeyword;
+	bool bKeyword;
+	unsigned long lLastKillTime;	//用于防止两次发送关闭请求间隔太短
 };
 
 // CPopADKillerDlg 对话框
@@ -50,16 +56,14 @@ protected:
 public:
 	afx_msg void OnBnClickedBtnHandkill();
 	CString m_csOutput;
-	afx_msg void OnBnClickedBtnShowTaskIco();
-	LRESULT OnShowTaskIco(WPARAM wParam, LPARAM lParam);
-	afx_msg void OnRestoreWindow();
+	LRESULT OnTaskIco(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnShowWindow();
 private:
 	NOTIFYICONDATA m_nid;
-	bool m_bVisible;
-	bool m_bInitFinished;
+	bool m_bMiniStart;	// 启动程序最小化到系统托盘
+	bool m_bMini;	// 正常运行时最小化状态
+	bool m_bInitFinished;	//为防止未初始化完成OnSize调用控件对象造成崩溃
 	CWinThread* m_pWndThread;
-	CONFIGDATA* m_pCfgData;
-	std::vector<ListItem> m_vListItems;
 public:
 	afx_msg void OnDestroy();
 //	afx_msg void OnTimer(UINT_PTR nIDEvent);
@@ -67,7 +71,6 @@ public:
 	afx_msg void OnWindowPosChanging(WINDOWPOS* lpwndpos);
 	CListCtrl m_List;
 	afx_msg void OnBnClickedBtnAdditem();
-	afx_msg void OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult);
 	int AddItem(const ListItem* item);
 	int DelItem(unsigned int nIndex);
 	int DelItem(const ListItem* item);
@@ -77,4 +80,8 @@ public:
 	BOOL HandleItem(const ListItem* item);
 	afx_msg void OnClose();
 	int InitConfig();
+	int SaveConfig();
+	// 启动程序不显示界面,最小化到系统托盘
+	CButton m_cbMiniStart;
+	afx_msg void OnBnClickedCheck1();
 };

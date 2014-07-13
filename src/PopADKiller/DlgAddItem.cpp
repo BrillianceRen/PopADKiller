@@ -147,7 +147,6 @@ LRESULT CDlgAddItem::OnCaptureMouseMove( WPARAM wParam, LPARAM lParam )
 void CDlgAddItem::OnBnClickedBtnOk()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	BOOL bKeyword = ((CButton*)GetDlgItem(IDC_CHECK1))->GetCheck()==1;
 
 	UpdateData(TRUE);
 	if(m_csTitle.IsEmpty())
@@ -157,13 +156,13 @@ void CDlgAddItem::OnBnClickedBtnOk()
 	}
 
 	ListItem* item = new ListItem();
+	item->bKeyword = ((CButton*)GetDlgItem(IDC_CHECK1))->GetCheck()==1;
 	item->csTitle = m_csTitle;
 	item->csClass = m_csClass;
 	item->csRect = m_csRect;
 	item->csProcessId = m_csProcessId;
 	item->csProcessName = m_csProcessName;
 	item->csProcessPath = m_csProcessPath;
-	item->bKeyword = bKeyword;
 
 	m_pParent->AddItem(item);
 	OnOK();

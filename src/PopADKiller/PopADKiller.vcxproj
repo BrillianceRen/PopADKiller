@@ -129,6 +129,9 @@
   <ItemGroup>
     <ResourceCompile Include="PopADKiller.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\PopADKiller.ico" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
