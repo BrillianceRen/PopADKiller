@@ -64,6 +64,9 @@ void CPopADKillerDlg::OnClose()
 		//}
 	} 
 
+
+
+
 	DeleteAllItems();
 
 	if(m_pCfgData->items)
