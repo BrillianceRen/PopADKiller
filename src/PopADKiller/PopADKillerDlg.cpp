@@ -30,7 +30,8 @@ CPopADKillerDlg::CPopADKillerDlg(CWnd* pParent /*=NULL*/)
 	, m_csOutput(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_ICO_PopADKiller/*IDR_MAINFRAME*/);
-	m_bMiniStart = false;
+	m_bMiniStart = false; 
+	m_bMini = false;
 	m_bInitFinished = false;
 
 	m_pWndThread = NULL;
@@ -75,8 +76,8 @@ BEGIN_MESSAGE_MAP(CPopADKillerDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BTN_HANDKILL, &CPopADKillerDlg::OnBnClickedBtnHandkill)
-	ON_MESSAGE(WM_SHOWTASKICO, OnShowTaskIco)
-	ON_COMMAND(IDM_RESTOREWINDOWS,OnRestoreWindow)
+	ON_MESSAGE(WM_SHOWTASKICO, OnTaskIco)
+	ON_COMMAND(IDM_RESTOREWINDOWS,OnShowWindow)
 	ON_WM_DESTROY()
 	//	ON_WM_TIMER()
 	ON_WM_SIZE()
@@ -159,14 +160,11 @@ BOOL CPopADKillerDlg::OnInitDialog()
 
 	m_bInitFinished = true;
 
-	if (!m_bMiniStart)
+	m_cbMiniStart.SetCheck(m_bMiniStart);
+	m_bMini = m_bMiniStart;
+	if (!m_bMini)
 	{
-		CRect rt;
-		GetClientRect(&rt);
-		int cx = GetSystemMetrics(SM_CXFULLSCREEN/*SM_CXSCREEN*/);	//SM_CXFULLSCREEN 不包括状态栏, SM_CXSCREEN 包括状态栏
-		int cy = GetSystemMetrics(SM_CYFULLSCREEN/*SM_CYSCREEN*/);	//SM_CYFULLSCREEN 不包括状态栏, SM_CYSCREEN 包括状态栏
-		MoveWindow((cx - rt.Width()) / 2, (cy - rt.Height()) / 2, rt.Width(), rt.Height());
-		ShowWindow(SW_SHOWNORMAL);
+		OnShowWindow();
 	}
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
@@ -284,7 +282,8 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) // 回调函数
 	return TRUE;
 }
 
-LRESULT CPopADKillerDlg::OnShowTaskIco( WPARAM wParam, LPARAM lParam )
+//针对托盘图标的操作
+LRESULT CPopADKillerDlg::OnTaskIco( WPARAM wParam, LPARAM lParam )
 {
 	if(wParam != IDR_ICO_PopADKiller)
 		return 1;
@@ -307,8 +306,7 @@ LRESULT CPopADKillerDlg::OnShowTaskIco( WPARAM wParam, LPARAM lParam )
 		break;
 	case WM_LBUTTONDBLCLK:                                 // 双击左键的处理
 		{
-			OnRestoreWindow();
-			ShowWindow(SW_SHOW);
+			OnShowWindow();
 		}
 		break;
 	}
@@ -324,9 +322,16 @@ void CPopADKillerDlg::OnDestroy()
 	Shell_NotifyIcon(NIM_DELETE, &m_nid); 
 }
 
-void CPopADKillerDlg::OnRestoreWindow()
+//显示窗体
+void CPopADKillerDlg::OnShowWindow()
 {
-	this->ShowWindow(SW_SHOWNORMAL);         // 显示主窗口
+	m_bMini = false;
+	CRect rt;
+	GetClientRect(&rt);
+	int cx = GetSystemMetrics(SM_CXFULLSCREEN/*SM_CXSCREEN*/);	//SM_CXFULLSCREEN 不包括状态栏, SM_CXSCREEN 包括状态栏
+	int cy = GetSystemMetrics(SM_CYFULLSCREEN/*SM_CYSCREEN*/);	//SM_CYFULLSCREEN 不包括状态栏, SM_CYSCREEN 包括状态栏
+	MoveWindow((cx - rt.Width()) / 2, (cy - rt.Height()) / 2, rt.Width(), rt.Height());
+	ShowWindow(SW_SHOWNORMAL);
 }
 
 
@@ -397,7 +402,7 @@ void CPopADKillerDlg::OnSize(UINT nType, int cx, int cy)
 
 void CPopADKillerDlg::OnWindowPosChanging(WINDOWPOS* lpwndpos)
 {
-	if(m_bMiniStart)
+	if (m_bMini)
 		lpwndpos->flags &= ~SWP_SHOWWINDOW;	//对话框启动时隐藏
 
 	CDialogEx::OnWindowPosChanging(lpwndpos);

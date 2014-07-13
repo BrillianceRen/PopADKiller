@@ -56,11 +56,12 @@ protected:
 public:
 	afx_msg void OnBnClickedBtnHandkill();
 	CString m_csOutput;
-	LRESULT OnShowTaskIco(WPARAM wParam, LPARAM lParam);
-	afx_msg void OnRestoreWindow();
+	LRESULT OnTaskIco(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnShowWindow();
 private:
 	NOTIFYICONDATA m_nid;
 	bool m_bMiniStart;	// 启动程序最小化到系统托盘
+	bool m_bMini;	// 正常运行时最小化状态
 	bool m_bInitFinished;	//为防止未初始化完成OnSize调用控件对象造成崩溃
 	CWinThread* m_pWndThread;
 public:
