@@ -7,6 +7,7 @@
 
 #include "ConfigManager.h"
 #include <vector>
+#include "afxwin.h"
 
 class ListItem
 {
@@ -50,12 +51,11 @@ protected:
 public:
 	afx_msg void OnBnClickedBtnHandkill();
 	CString m_csOutput;
-	afx_msg void OnBnClickedBtnShowTaskIco();
 	LRESULT OnShowTaskIco(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnRestoreWindow();
 private:
 	NOTIFYICONDATA m_nid;
-	bool m_bVisible;
+	bool m_bFirstRunVisible;
 	bool m_bInitFinished;
 	CWinThread* m_pWndThread;
 	CONFIGDATA* m_pCfgData;
@@ -67,7 +67,6 @@ public:
 	afx_msg void OnWindowPosChanging(WINDOWPOS* lpwndpos);
 	CListCtrl m_List;
 	afx_msg void OnBnClickedBtnAdditem();
-	afx_msg void OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult);
 	int AddItem(const ListItem* item);
 	int DelItem(unsigned int nIndex);
 	int DelItem(const ListItem* item);
@@ -77,4 +76,7 @@ public:
 	BOOL HandleItem(const ListItem* item);
 	afx_msg void OnClose();
 	int InitConfig();
+	// 启动程序不显示界面,最小化到系统托盘
+	CButton m_cbMiniStart;
+	//CEvent m_EventThreadExit; //线程退出事件
 };

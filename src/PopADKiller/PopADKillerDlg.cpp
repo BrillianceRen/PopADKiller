@@ -14,7 +14,7 @@
 #define new DEBUG_NEW
 #endif
 
-static int g_bThreadRunning = false;
+static int g_nThreadStat = 0;
 // CPopADKillerDlg 对话框
 
 #define WM_SHOWTASKICO (WM_USER + 1)	//最小化到系统托盘消息
@@ -23,14 +23,14 @@ static int g_bThreadRunning = false;
 
 #define TIMER_AUTOKILL 1	//自动定时运行杀QQ弹窗
 
-DWORD WINAPI ThreadProc(LPVOID pParam);
+UINT AFX_CDECL ThreadProc(LPVOID pParam);
 
 CPopADKillerDlg::CPopADKillerDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CPopADKillerDlg::IDD, pParent)
 	, m_csOutput(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_ICO_PopADKiller/*IDR_MAINFRAME*/);
-	m_bVisible = true;
+	m_bFirstRunVisible = true;
 	m_bInitFinished = false;
 
 	m_pWndThread = NULL;
@@ -44,31 +44,24 @@ CPopADKillerDlg::~CPopADKillerDlg()
 void CPopADKillerDlg::OnClose()
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	g_bThreadRunning = false;
 
-	tagMSG msg;
-	int sum = 50;
-	while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) && --sum)     
-	{    
-		DispatchMessage(&msg);  
-		Sleep(10);
-		//DWORD code = 0;
-		//BOOL bRet = ::GetExitCodeThread(m_pWndThread->m_hThread, &code);
-		//if(code != STILL_ACTIVE)
-		//	break;
-		//if(WAIT_OBJECT_0 == WaitForSingleObject(m_pWndThread->m_hThread, 100))
-		//{
-		//	//delete m_pWndThread; 
-		//	//m_pWndThread = NULL;
-		//	break;
-		//}
-	} 
-
-
-
+	g_nThreadStat = 0;
+	while (g_nThreadStat != 2)
+	{
+		MSG msg;
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			if (g_nThreadStat == 2)
+				break;
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+	}
 
 	DeleteAllItems();
 
+	CConfigManager CfgManager(_T("config.dat"));
+	CfgManager.SaveConfig(m_pCfgData);
 	if(m_pCfgData->items)
 		free(m_pCfgData->items);
 	delete m_pCfgData;
@@ -81,13 +74,13 @@ void CPopADKillerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT1, m_csOutput);
 	//	DDX_Control(pDX, IDC_BTN_CATCH, m_pCaptureButton);
 	DDX_Control(pDX, IDC_LIST1, m_List);
+	DDX_Control(pDX, IDC_CHECK1, m_cbMiniStart);
 }
 
 BEGIN_MESSAGE_MAP(CPopADKillerDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BTN_HANDKILL, &CPopADKillerDlg::OnBnClickedBtnHandkill)
-	ON_BN_CLICKED(IDC_BTN_SMALL, &CPopADKillerDlg::OnBnClickedBtnShowTaskIco)
 	ON_MESSAGE(WM_SHOWTASKICO, OnShowTaskIco)
 	ON_COMMAND(IDM_RESTOREWINDOWS,OnRestoreWindow)
 	ON_WM_DESTROY()
@@ -95,7 +88,6 @@ BEGIN_MESSAGE_MAP(CPopADKillerDlg, CDialogEx)
 	ON_WM_SIZE()
 	ON_WM_WINDOWPOSCHANGING()
 	ON_BN_CLICKED(IDC_BTN_ADDITEM, &CPopADKillerDlg::OnBnClickedBtnAdditem)
-	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST1, &CPopADKillerDlg::OnLvnItemchangedList1)
 	ON_BN_CLICKED(IDC_BTN_DELETEITEM, &CPopADKillerDlg::OnBnClickedBtnDeleteitem)
 	ON_WM_CLOSE()
 END_MESSAGE_MAP()
@@ -124,36 +116,36 @@ BOOL CPopADKillerDlg::OnInitDialog()
 	//strcpy(m_nid.szTip, "干掉QQ弹窗");                // 信息提示条为"服务器程序"，VS2008 UNICODE编码用wcscpy_s()函数
 	Shell_NotifyIcon(NIM_ADD, &m_nid);                // 在托盘区添加图标
 
-	CRect rt;
-	GetClientRect(&rt);
-	//列表
-	int x = 4;
-	int y = 4;
-	int w = rt.Width() - 8;
-	int h = ((rt.Height()-8)-(4+26+4+20+4))*2/3;
-	GetDlgItem(IDC_LIST1)->MoveWindow(x, y, w, h);
-	//按钮
-	y += h + 4;
-	w = 60;
-	h = 26;
-	GetDlgItem(IDC_BTN_ADDITEM)->MoveWindow(x, y, w, h);	//添加按钮
-	x += w + 4;
-	w = 120;
-	GetDlgItem(IDC_BTN_SMALL)->MoveWindow(x, y, w, h);	//最小化到托盘按钮
-	x += w + 4;
-	w = 60;
-	GetDlgItem(IDC_BTN_DELETEITEM)->MoveWindow(x, y, w, h);	//手杀按钮
-	GetDlgItem(IDC_BTN_HANDKILL)->ShowWindow(SW_HIDE);
-	//日志
-	x = 4;
-	y += h + 4;
-	w = 60;
-	h = 20;
-	GetDlgItem(IDC_STATIC1)->MoveWindow(x, y, w, h);
-	y += h + 4;
-	w = rt.Width() - 8;
-	h = (rt.Height()-8) - y;
-	GetDlgItem(IDC_EDIT1)->MoveWindow(x, y, w, h);
+	//CRect rt;
+	//GetClientRect(&rt);
+	////列表
+	//int x = 4;
+	//int y = 4;
+	//int w = rt.Width() - 8;
+	//int h = ((rt.Height()-8)-(4+26+4+20+4))*2/3;
+	//GetDlgItem(IDC_LIST1)->MoveWindow(x, y, w, h);
+	////按钮
+	//y += h + 4;
+	//w = 60;
+	//h = 26;
+	//GetDlgItem(IDC_BTN_ADDITEM)->MoveWindow(x, y, w, h);	//添加按钮
+	//x += w + 4;
+	//w = 60;
+	//GetDlgItem(IDC_BTN_DELETEITEM)->MoveWindow(x, y, w, h);		//删除按钮
+	//x += w + 4;
+	//w = 120;
+	//GetDlgItem(IDC_BTN_SMALL)->MoveWindow(x, y, w, h);	//最小化到托盘按钮
+	////GetDlgItem(IDC_BTN_HANDKILL)->ShowWindow(SW_HIDE);	//手杀按钮
+	////日志
+	//x = 4;
+	//y += h + 4;
+	//w = 60;
+	//h = 20;
+	//GetDlgItem(IDC_STATIC1)->MoveWindow(x, y, w, h);
+	//y += h + 4;
+	//w = rt.Width() - 8;
+	//h = (rt.Height()-8) - y;
+	//GetDlgItem(IDC_EDIT1)->MoveWindow(x, y, w, h);
 
 	m_List.InsertColumn(0, _T("标题"), LVCFMT_LEFT, 100);
 	m_List.InsertColumn(1, _T("类名"), LVCFMT_LEFT, 100);
@@ -166,14 +158,25 @@ BOOL CPopADKillerDlg::OnInitDialog()
 	InitConfig();
 
 	if(!m_pCfgData->bMiniStart)
+	{
+		CRect rt;
+		GetClientRect(&rt);
+		int cx = GetSystemMetrics(SM_CXFULLSCREEN/*SM_CXSCREEN*/);	//SM_CXFULLSCREEN 不包括状态栏, SM_CXSCREEN 包括状态栏
+		int cy = GetSystemMetrics(SM_CYFULLSCREEN/*SM_CYSCREEN*/);	//SM_CYFULLSCREEN 不包括状态栏, SM_CYSCREEN 包括状态栏
+		MoveWindow((cx - rt.Width()) / 2, (cy - rt.Height()) / 2, rt.Width(), rt.Height());
 		ShowWindow(SW_SHOWNORMAL);
+	}
+	m_bFirstRunVisible = !m_pCfgData->bMiniStart;
+
+	g_nThreadStat = 1; 
+	//m_EventThreadExit.ResetEvent();
+	m_pWndThread = AfxBeginThread(ThreadProc, this/*, THREAD_PRIORITY_TIME_CRITICAL*/);
+	//m_pWndThread->m_bAutoDelete = false;
+
 	//SetTimer(TIMER_AUTOKILL, 1000, NULL);
 
-	g_bThreadRunning = true;
-	m_pWndThread = AfxBeginThread((AFX_THREADPROC)ThreadProc, this/*, THREAD_PRIORITY_TIME_CRITICAL*/);
-
-	m_bVisible = false;
 	m_bInitFinished = true;
+
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -274,34 +277,19 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) // 回调函数
 	if(pthis->HandleItem(&item))
 	{
 		PostMessage(hwnd, WM_CLOSE, 0, 0);
-		/*	CTime t = CTime::GetCurrentTime();
+		//输出日志
+		CTime t = CTime::GetCurrentTime();
 		CString csText;
-		csText.Format(_T("Time:%s Title:%s, Class:%s\r\n"), t.Format(_T("%H:%M:%S")), szTitle, szClass);
-		pthis->m_csOutput = pthis->m_csOutput + csText;
-		if(pthis->m_csOutput.GetLength() > 20000)
-		pthis->m_csOutput = csText;
-		pthis->GetDlgItem(IDC_EDIT1)->SetWindowText(pthis->m_csOutput);*/
-		//pthis->UpdateData(FALSE);
+		csText.Format(_T("[%s] [Title]:%s, [Class]:%s\r\n"), t.Format(_T("%H:%M:%S")), szTitle, szClass);
+		CString csOutput;
+		pthis->GetDlgItem(IDC_EDIT1)->GetWindowText(csOutput);
+		csOutput = csOutput + csText;
+		if (csOutput.GetLength() > 20000)
+			csOutput = csText;
+		pthis->GetDlgItem(IDC_EDIT1)->SetWindowText(csOutput);
+		//pthis->UpdateData(FALSE); //工作线程内不能用UpdataData()
 	}
-
-	//if(csClass == _T("TXGuiFoundation") && csTitle.Find(_T("腾讯"))!=-1)
-	//{
-	//	PostMessage(hwnd, WM_CLOSE, 0, 0);
-	//	CTime t = CTime::GetCurrentTime();
-	//	csTitle.Format(_T("Time:%s Title:%s, Class:%s\r\n"), t.Format(_T("%H:%M:%S")), szTitle, szClass);
-	//	pthis->m_csOutput = pthis->m_csOutput + csTitle;
-	//	pthis->UpdateData(FALSE);
-	//	return FALSE;	//返回FALSE停止枚举
-	//}
-	// End Add [7/12/2014 Brilliance]
 	return TRUE;
-}
-
-void CPopADKillerDlg::OnBnClickedBtnShowTaskIco()
-{
-	// TODO: 在此添加控件通知处理程序代码
-	m_bVisible = false;
-	ShowWindow(SW_HIDE); // 当最小化市，隐藏主窗口 
 }
 
 LRESULT CPopADKillerDlg::OnShowTaskIco( WPARAM wParam, LPARAM lParam )
@@ -346,7 +334,6 @@ void CPopADKillerDlg::OnDestroy()
 
 void CPopADKillerDlg::OnRestoreWindow()
 {
-	m_bVisible = true;
 	this->ShowWindow(SW_SHOWNORMAL);         // 显示主窗口
 }
 
@@ -376,10 +363,10 @@ void CPopADKillerDlg::OnSize(UINT nType, int cx, int cy)
 	CDialogEx::OnSize(nType, cx, cy);
 
 	// TODO: 在此处添加消息处理程序代码
-	cx -= 8;
-	cy -= 8;
 	if(m_bInitFinished)
 	{
+		cx -= 8;
+		cy -= 8;
 		//列表
 		int x = 4;
 		int y = 4;
@@ -392,11 +379,8 @@ void CPopADKillerDlg::OnSize(UINT nType, int cx, int cy)
 		h = 26;
 		GetDlgItem(IDC_BTN_ADDITEM)->MoveWindow(x, y, w, h);	//添加按钮
 		x += w + 4;
-		w = 120;
-		GetDlgItem(IDC_BTN_SMALL)->MoveWindow(x, y, w, h);	//最小化到托盘按钮
-		x += w + 4;
 		w = 60;
-		GetDlgItem(IDC_BTN_DELETEITEM)->MoveWindow(x, y, w, h);	//手杀按钮
+		GetDlgItem(IDC_BTN_DELETEITEM)->MoveWindow(x, y, w, h);	//删除按钮
 		//日志
 		x = 4;
 		y += h + 4;
@@ -408,20 +392,19 @@ void CPopADKillerDlg::OnSize(UINT nType, int cx, int cy)
 		h = cy - y;
 		GetDlgItem(IDC_EDIT1)->MoveWindow(x, y, w, h);
 	}
+
 	if(nType == SIZE_MINIMIZED)  
 	{  
-		m_bVisible = false;
-		ShowWindow(SW_HIDE); // 当最小化市，隐藏主窗口              
+		ShowWindow(SW_HIDE); // 当最小化，隐藏主窗口              
 	}  
 }
 
 
 void CPopADKillerDlg::OnWindowPosChanging(WINDOWPOS* lpwndpos)
 {
-	if(!m_bVisible)
-	{
-		lpwndpos->flags &= ~SWP_SHOWWINDOW;
-	}
+	if(!m_bFirstRunVisible)
+		lpwndpos->flags &= ~SWP_SHOWWINDOW;	//对话框启动时便隐藏
+
 	CDialogEx::OnWindowPosChanging(lpwndpos);
 
 	// TODO: 在此处添加消息处理程序代码
@@ -447,13 +430,6 @@ void CPopADKillerDlg::OnBnClickedBtnAdditem()
 	}
 }
 
-
-void CPopADKillerDlg::OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult)
-{
-	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
-	// TODO: 在此添加控件通知处理程序代码
-	*pResult = 0;
-}
 
 int CPopADKillerDlg::AddItem( const ListItem* item )
 {
@@ -572,26 +548,25 @@ BOOL CPopADKillerDlg::HandleItem( const ListItem* item )
 	return FALSE;
 }
 
-DWORD WINAPI ThreadProc(LPVOID pParam)
+UINT AFX_CDECL ThreadProc(LPVOID pParam)
 {
 	CPopADKillerDlg* pThis = (CPopADKillerDlg*)pParam;
-	while(1)
+	while (g_nThreadStat != 0)
 	{
-		if(!g_bThreadRunning)
-			break;
+		// 完成某些工作的其它行程序    
 		EnumWindows(EnumWindowsProc, (LPARAM)pThis); // 枚举窗口,杀QQ弹窗
 		Sleep(200);
 	}
-	return 100;
+	//pThis->m_EventThreadExit.SetEvent();
+	g_nThreadStat = 2;
+	TRACE(_T("退出线程\r\n"));
+	return 0;
 }
 
 
 int CPopADKillerDlg::InitConfig()
 {
 	CConfigManager CfgManager(_T("config.dat"));
-	m_pCfgData->bMiniStart = false;
-	m_pCfgData->nCount = 0;
-	m_pCfgData->items = NULL;
 
 	CONFIGDATA *pCfgData = new CONFIGDATA;
 	if(0 == CfgManager.LoadConfig(pCfgData))

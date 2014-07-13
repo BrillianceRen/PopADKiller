@@ -77,4 +77,7 @@
       <Filter>res</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\PopADKiller.ico" />
+  </ItemGroup>
 </Project>
