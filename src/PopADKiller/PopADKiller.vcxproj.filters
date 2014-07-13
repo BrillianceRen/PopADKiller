@@ -48,9 +48,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="ReadMe.txt" />
-    <None Include="res\20140709102702424_easyicon_net_128.ico">
-      <Filter>res</Filter>
-    </None>
     <None Include="res\PopADKiller.rc2">
       <Filter>res</Filter>
     </None>
@@ -78,6 +75,8 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="res\PopADKiller.ico" />
+    <Image Include="res\PopADKiller.ico">
+      <Filter>res</Filter>
+    </Image>
   </ItemGroup>
 </Project>

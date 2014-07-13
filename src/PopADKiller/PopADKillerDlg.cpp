@@ -29,7 +29,7 @@ CPopADKillerDlg::CPopADKillerDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CPopADKillerDlg::IDD, pParent)
 	, m_csOutput(_T(""))
 {
-	m_hIcon = AfxGetApp()->LoadIcon(IDR_ICO_PopADKiller/*IDR_MAINFRAME*/);
+	m_hIcon = AfxGetApp()->LoadIcon(IDR_ICO_PopADKiller);
 	m_bMiniStart = false; 
 	m_bMini = false;
 	m_bInitFinished = false;

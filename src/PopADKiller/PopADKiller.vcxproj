@@ -100,7 +100,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="ReadMe.txt" />
-    <None Include="res\20140709102702424_easyicon_net_128.ico" />
     <None Include="res\bitmap1.bmp" />
     <None Include="res\cursor1.cur" />
     <None Include="res\PopADKiller.rc2" />
