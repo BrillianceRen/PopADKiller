@@ -30,11 +30,10 @@ CPopADKillerDlg::CPopADKillerDlg(CWnd* pParent /*=NULL*/)
 	, m_csOutput(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_ICO_PopADKiller/*IDR_MAINFRAME*/);
-	m_bFirstRunVisible = true;
+	m_bMiniStart = false;
 	m_bInitFinished = false;
 
 	m_pWndThread = NULL;
-	m_pCfgData = new CONFIGDATA;
 }
 
 CPopADKillerDlg::~CPopADKillerDlg()
@@ -58,14 +57,9 @@ void CPopADKillerDlg::OnClose()
 		}
 	}
 
+	SaveConfig();
 	DeleteAllItems();
-
-	CConfigManager CfgManager(_T("config.dat"));
-	CfgManager.SaveConfig(m_pCfgData);
-	if(m_pCfgData->items)
-		free(m_pCfgData->items);
-	delete m_pCfgData;
-
+	
 	CDialogEx::OnClose();
 }
 void CPopADKillerDlg::DoDataExchange(CDataExchange* pDX)
@@ -90,6 +84,7 @@ BEGIN_MESSAGE_MAP(CPopADKillerDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_ADDITEM, &CPopADKillerDlg::OnBnClickedBtnAdditem)
 	ON_BN_CLICKED(IDC_BTN_DELETEITEM, &CPopADKillerDlg::OnBnClickedBtnDeleteitem)
 	ON_WM_CLOSE()
+	ON_BN_CLICKED(IDC_CHECK1, &CPopADKillerDlg::OnBnClickedCheck1)
 END_MESSAGE_MAP()
 
 
@@ -157,7 +152,14 @@ BOOL CPopADKillerDlg::OnInitDialog()
 
 	InitConfig();
 
-	if(!m_pCfgData->bMiniStart)
+	g_nThreadStat = 1; 
+	m_pWndThread = AfxBeginThread(ThreadProc, this/*, THREAD_PRIORITY_TIME_CRITICAL*/);
+
+	//SetTimer(TIMER_AUTOKILL, 1000, NULL);
+
+	m_bInitFinished = true;
+
+	if (!m_bMiniStart)
 	{
 		CRect rt;
 		GetClientRect(&rt);
@@ -166,16 +168,6 @@ BOOL CPopADKillerDlg::OnInitDialog()
 		MoveWindow((cx - rt.Width()) / 2, (cy - rt.Height()) / 2, rt.Width(), rt.Height());
 		ShowWindow(SW_SHOWNORMAL);
 	}
-	m_bFirstRunVisible = !m_pCfgData->bMiniStart;
-
-	g_nThreadStat = 1; 
-	//m_EventThreadExit.ResetEvent();
-	m_pWndThread = AfxBeginThread(ThreadProc, this/*, THREAD_PRIORITY_TIME_CRITICAL*/);
-	//m_pWndThread->m_bAutoDelete = false;
-
-	//SetTimer(TIMER_AUTOKILL, 1000, NULL);
-
-	m_bInitFinished = true;
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -381,6 +373,9 @@ void CPopADKillerDlg::OnSize(UINT nType, int cx, int cy)
 		x += w + 4;
 		w = 60;
 		GetDlgItem(IDC_BTN_DELETEITEM)->MoveWindow(x, y, w, h);	//删除按钮
+		x = cx - 120;
+		w = 120;
+		GetDlgItem(IDC_CHECK1)->MoveWindow(x, y, w, h);	//启动最小化
 		//日志
 		x = 4;
 		y += h + 4;
@@ -402,13 +397,12 @@ void CPopADKillerDlg::OnSize(UINT nType, int cx, int cy)
 
 void CPopADKillerDlg::OnWindowPosChanging(WINDOWPOS* lpwndpos)
 {
-	if(!m_bFirstRunVisible)
-		lpwndpos->flags &= ~SWP_SHOWWINDOW;	//对话框启动时便隐藏
+	if(m_bMiniStart)
+		lpwndpos->flags &= ~SWP_SHOWWINDOW;	//对话框启动时隐藏
 
 	CDialogEx::OnWindowPosChanging(lpwndpos);
 
 	// TODO: 在此处添加消息处理程序代码
-
 }
 
 
@@ -431,55 +425,111 @@ void CPopADKillerDlg::OnBnClickedBtnAdditem()
 }
 
 
+
+int CPopADKillerDlg::InitConfig()
+{
+	CConfigManager cfgManager(_T("config.dat"));
+
+	CONFIGDATA cfgData;
+	if (0 == cfgManager.LoadConfig(&cfgData))
+	{
+		m_bMiniStart = cfgData.bMiniStart;
+		//读取成功
+		for (unsigned int i = 0; i<cfgData.nCount; i++)
+		{
+			ListItem* item = new ListItem;
+			item->bKeyword = cfgData.items[i].bKeyword;
+			item->csTitle = cfgData.items[i].sTitle;
+			item->csClass = cfgData.items[i].sClass;
+			item->csRect = cfgData.items[i].sRect;
+			item->csProcessId = cfgData.items[i].sProcessId;
+			item->csProcessName = cfgData.items[i].sProcessName;
+			item->csProcessPath = cfgData.items[i].sProcessPath;
+			AddItem(item);
+		}
+	}
+	else
+	{
+		//读取失败,写入默认数据
+		ListItem* item = new ListItem;
+		item->bKeyword = true;
+		item->csTitle = _T("腾讯");
+		item->csClass = _T("TXGuiFoundation");
+		AddItem(item);
+
+		item = new ListItem;
+		item->bKeyword = true;
+		item->csTitle = _T("京东");
+		item->csClass = _T("TXGuiFoundation");
+		AddItem(item);
+	}
+
+	if (cfgData.items)
+		free(cfgData.items);
+	return 0;
+}
+
+int CPopADKillerDlg::SaveConfig()
+{
+	CConfigManager cfgManager(_T("config.dat"));
+	CONFIGDATA cfgData;
+
+	cfgData.bMiniStart = m_bMiniStart;
+	cfgData.nCount = m_List.GetItemCount();
+	if (cfgData.nCount > 0)
+	{
+		cfgData.items = (CONFIGITEM*)calloc(cfgData.nCount, sizeof(CONFIGITEM));
+		for (unsigned int nIndex = 0; nIndex < cfgData.nCount; nIndex++)
+		{
+			ListItem* item = (ListItem*)m_List.GetItemData(nIndex);
+			cfgData.items[nIndex].bKeyword = item->bKeyword;
+			/*
+			_stprintf_s(cfgItem.sTitle, sizeof(cfgItem.sTitle) / sizeof(TCHAR), _T("%s"), item->csTitle);
+			_stprintf_s(cfgItem.sClass, sizeof(cfgItem.sClass) / sizeof(TCHAR), _T("%s"), item->csClass);
+			_stprintf_s(cfgItem.sRect, sizeof(cfgItem.sRect) / sizeof(TCHAR), _T("%s"), item->csRect);
+			_stprintf_s(cfgItem.sProcessId, sizeof(cfgItem.sProcessId) / sizeof(TCHAR), _T("%s"), item->csProcessId);
+			_stprintf_s(cfgItem.sProcessName, sizeof(cfgItem.sProcessName) / sizeof(TCHAR), _T("%s"), item->csProcessName);
+			_stprintf_s(cfgItem.sProcessPath, sizeof(cfgItem.sProcessPath) / sizeof(TCHAR), _T("%s"), item->csProcessPath);
+			*/
+
+#define COPYITEM(dst,src) (_tcscpy_s(dst, sizeof(dst) / sizeof(TCHAR), src))
+
+			COPYITEM(cfgData.items[nIndex].sTitle, item->csTitle);
+			COPYITEM(cfgData.items[nIndex].sClass, item->csClass);
+			COPYITEM(cfgData.items[nIndex].sRect, item->csRect);
+			COPYITEM(cfgData.items[nIndex].sProcessId, item->csProcessId);
+			COPYITEM(cfgData.items[nIndex].sProcessName, item->csProcessName);
+			COPYITEM(cfgData.items[nIndex].sProcessPath, item->csProcessPath);
+		}
+	}
+	cfgManager.SaveConfig(&cfgData);
+	return 0;
+}
+
 int CPopADKillerDlg::AddItem( const ListItem* item )
 {
 	int nIndex = m_List.GetItemCount();
+	for (int i = 0; i < nIndex; i++)
+	{
+		CString csTitle = m_List.GetItemText(i, 0);
+		CString csClass = m_List.GetItemText(i, 1);
+		if (csTitle == item->csTitle && csClass == item->csClass)
+		{
+			MessageBox(_T("标题和类名不可同时重复,请重新添加"));
+			return 0;
+		}
+	}
+	//插入一条记录
 	m_List.InsertItem(nIndex, _T(""));
+	//设置记录数据
 	m_List.SetItemData(nIndex, (DWORD_PTR)item);
+	//设置记录项
 	m_List.SetItemText(nIndex, 0, item->csTitle);
 	m_List.SetItemText(nIndex, 1, item->csClass);
 	m_List.SetItemText(nIndex, 2, item->csRect);
 	m_List.SetItemText(nIndex, 3, item->csProcessId);
 	m_List.SetItemText(nIndex, 4, item->csProcessName);
 	m_List.SetItemText(nIndex, 5, item->csProcessPath);	
-
-	CONFIGITEM cfgItem;
-	cfgItem.bKeyword = !!item->bKeyword;
- 	_stprintf_s(cfgItem.sTitle, sizeof(cfgItem.sTitle)/sizeof(TCHAR), _T("%s"), item->csTitle);
- 	_stprintf_s(cfgItem.sClass, sizeof(cfgItem.sClass)/sizeof(TCHAR), _T("%s"), item->csClass);
- 	_stprintf_s(cfgItem.sRect, sizeof(cfgItem.sRect)/sizeof(TCHAR), _T("%s"), item->csRect);
- 	_stprintf_s(cfgItem.sProcessId, sizeof(cfgItem.sProcessId)/sizeof(TCHAR), _T("%s"), item->csProcessId);
- 	_stprintf_s(cfgItem.sProcessName, sizeof(cfgItem.sProcessName)/sizeof(TCHAR), _T("%s"), item->csProcessName);
- 	_stprintf_s(cfgItem.sProcessPath, sizeof(cfgItem.sProcessPath)/sizeof(TCHAR), _T("%s"), item->csProcessPath);
-	
-	//_tcscpy_s(cfgItem.sTitle, sizeof(cfgItem.sTitle)/sizeof(TCHAR), item->csTitle);
-	//_tcscpy_s(cfgItem.sClass, sizeof(cfgItem.sClass)/sizeof(TCHAR), item->csClass);
-	//_tcscpy_s(cfgItem.sRect, sizeof(cfgItem.sRect)/sizeof(TCHAR), item->csRect);
-	//_tcscpy_s(cfgItem.sProcessId, sizeof(cfgItem.sProcessId)/sizeof(TCHAR), item->csProcessId);
-	//_tcscpy_s(cfgItem.sProcessName, sizeof(cfgItem.sProcessName)/sizeof(TCHAR), item->csProcessName);
-	//_tcscpy_s(cfgItem.sProcessPath, sizeof(cfgItem.sProcessPath)/sizeof(TCHAR), item->csProcessPath);
-	
-	if(m_pCfgData->items == NULL)
-	{
-		m_pCfgData->items = (CONFIGITEM*)calloc(1, sizeof(CONFIGITEM));
-		if(m_pCfgData->items)
-			memcpy_s(m_pCfgData->items, sizeof(CONFIGITEM), &cfgItem, sizeof(CONFIGITEM));
-	}
-	else
-	{
-		unsigned long nSize = m_pCfgData->nCount * sizeof(CONFIGITEM);
-		CONFIGITEM* pCfgItemTmp = &m_pCfgData->items[0];
-		pCfgItemTmp = &m_pCfgData->items[1];
-
-		CONFIGITEM* pCfgItem = (CONFIGITEM*)realloc(m_pCfgData->items, (nSize + sizeof(CONFIGITEM)));
-		if(pCfgItem)
-		{
-			m_pCfgData->items = pCfgItem;
-			memcpy_s(&m_pCfgData->items[m_pCfgData->nCount], sizeof(CONFIGITEM), &cfgItem, sizeof(CONFIGITEM));
-		}
-	}
-	m_pCfgData->nCount++;
-
 	return 0;
 }
 
@@ -497,6 +547,13 @@ void CPopADKillerDlg::OnBnClickedBtnDeleteitem()
 			delete item;
 		m_List.DeleteItem(nItem);
 	}
+}
+
+void CPopADKillerDlg::OnBnClickedCheck1()
+{
+	// TODO:  在此添加控件通知处理程序代码
+	int stat = m_cbMiniStart.GetCheck();
+	m_bMiniStart = (stat == 1);
 }
 
 void CPopADKillerDlg::DeleteAllItems()
@@ -542,7 +599,13 @@ BOOL CPopADKillerDlg::HandleItem( const ListItem* item )
 					continue;
 			}
 
-			return TRUE;
+			if (GetTickCount() - pListItem->lLastKillTime > 5000)
+			{
+				pListItem->lLastKillTime = GetTickCount();
+				return TRUE;
+			}
+			else
+				return FALSE;
 		}
 	}
 	return FALSE;
@@ -557,64 +620,7 @@ UINT AFX_CDECL ThreadProc(LPVOID pParam)
 		EnumWindows(EnumWindowsProc, (LPARAM)pThis); // 枚举窗口,杀QQ弹窗
 		Sleep(200);
 	}
-	//pThis->m_EventThreadExit.SetEvent();
 	g_nThreadStat = 2;
 	TRACE(_T("退出线程\r\n"));
-	return 0;
-}
-
-
-int CPopADKillerDlg::InitConfig()
-{
-	CConfigManager CfgManager(_T("config.dat"));
-
-	CONFIGDATA *pCfgData = new CONFIGDATA;
-	if(0 == CfgManager.LoadConfig(pCfgData))
-	{
-		//读取成功
-		for(unsigned int i=0; i<m_pCfgData->nCount; i++)
-		{
-			ListItem* item = new ListItem;
-			item->bKeyword = pCfgData->items[i].bKeyword;
-			item->csTitle = pCfgData->items[i].sTitle;
-			item->csClass = pCfgData->items[i].sClass;
-			item->csRect = pCfgData->items[i].sRect;
-			item->csProcessId = pCfgData->items[i].sProcessId;
-			item->csProcessName = pCfgData->items[i].sProcessName;
-			item->csProcessPath = pCfgData->items[i].sProcessPath;	
-			AddItem(item);
-		}
-	}
-	else
-	{
-		//读取失败,写入默认数据
-		ListItem* item = new ListItem;
-		item->bKeyword = 1;
-		item->csTitle = _T("腾讯");
-		item->csClass = _T("TXGuiFoundation");
-		AddItem(item);
-
-		item = new ListItem;
-		item->bKeyword = 1;
-		item->csTitle = _T("京东");
-		item->csClass = _T("TXGuiFoundation");
-		AddItem(item);
-
-		CfgManager.SaveConfig(m_pCfgData);
-	}
-
-	if(pCfgData->items)
-		free(pCfgData->items);
-	return 0;
-}
-
-int CPopADKillerDlg::DelItem( unsigned int nIndex )
-{
-
-	return 0;
-}
-
-int CPopADKillerDlg::DelItem( const ListItem* item )
-{
 	return 0;
 }

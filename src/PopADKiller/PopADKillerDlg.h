@@ -12,7 +12,11 @@
 class ListItem
 {
 public:
-	ListItem(){};
+	ListItem()
+	{
+		bKeyword = false;
+		lLastKillTime = 0;
+	};
 	~ListItem(){};
 public:
 	CString csTitle;
@@ -21,7 +25,8 @@ public:
 	CString csProcessId;
 	CString csProcessName;
 	CString csProcessPath;
-	BOOL bKeyword;
+	bool bKeyword;
+	unsigned long lLastKillTime;
 };
 
 // CPopADKillerDlg 对话框
@@ -55,11 +60,9 @@ public:
 	afx_msg void OnRestoreWindow();
 private:
 	NOTIFYICONDATA m_nid;
-	bool m_bFirstRunVisible;
-	bool m_bInitFinished;
+	bool m_bMiniStart;	// 启动程序最小化到系统托盘
+	bool m_bInitFinished;	//为防止未初始化完成OnSize调用控件对象造成崩溃
 	CWinThread* m_pWndThread;
-	CONFIGDATA* m_pCfgData;
-	std::vector<ListItem> m_vListItems;
 public:
 	afx_msg void OnDestroy();
 //	afx_msg void OnTimer(UINT_PTR nIDEvent);
@@ -76,7 +79,8 @@ public:
 	BOOL HandleItem(const ListItem* item);
 	afx_msg void OnClose();
 	int InitConfig();
+	int SaveConfig();
 	// 启动程序不显示界面,最小化到系统托盘
 	CButton m_cbMiniStart;
-	//CEvent m_EventThreadExit; //线程退出事件
+	afx_msg void OnBnClickedCheck1();
 };
