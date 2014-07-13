@@ -26,7 +26,7 @@ public:
 	CString csProcessName;
 	CString csProcessPath;
 	bool bKeyword;
-	unsigned long lLastKillTime;
+	unsigned long lLastKillTime;	//用于防止两次发送关闭请求间隔太短
 };
 
 // CPopADKillerDlg 对话框

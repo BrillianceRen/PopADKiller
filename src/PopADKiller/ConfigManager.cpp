@@ -4,7 +4,20 @@
 
 CConfigManager::CConfigManager(const tstring& sFilename)
 {
-	m_sFilename = sFilename;
+	TCHAR path_buffer[_MAX_PATH];
+	TCHAR drive[_MAX_DRIVE];
+	TCHAR dir[_MAX_DIR];
+	TCHAR fname[_MAX_FNAME];
+	TCHAR ext[_MAX_EXT];
+
+	GetModuleFileName(NULL, path_buffer, _MAX_PATH);
+	_tsplitpath_s(path_buffer, drive, dir, fname, ext);
+	tstring strDir;
+	strDir += drive;
+	strDir += dir;
+//	AfxMessageBox(strDir);
+
+	m_sFilename = strDir + sFilename;
 }
 
 
