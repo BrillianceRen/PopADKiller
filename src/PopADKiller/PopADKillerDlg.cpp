@@ -19,7 +19,8 @@ static int g_nThreadStat = 0;
 
 #define WM_SHOWTASKICO (WM_USER + 1)	//最小化到系统托盘消息
 
-#define IDM_RESTOREWINDOWS 1	//恢复窗体菜单ID
+#define IDM_TASKRESTOREWINDOWS (WM_USER + 100)	//恢复窗体菜单ID
+#define IDM_TASKCLOSE (WM_USER + 101)
 
 #define TIMER_AUTOKILL 1	//自动定时运行杀QQ弹窗
 
@@ -44,8 +45,8 @@ CPopADKillerDlg::~CPopADKillerDlg()
 void CPopADKillerDlg::OnClose()
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-
-	g_nThreadStat = 0;
+	if (g_nThreadStat != 2)
+		g_nThreadStat = 0;
 	while (g_nThreadStat != 2)
 	{
 		MSG msg;
@@ -77,7 +78,8 @@ BEGIN_MESSAGE_MAP(CPopADKillerDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BTN_HANDKILL, &CPopADKillerDlg::OnBnClickedBtnHandkill)
 	ON_MESSAGE(WM_SHOWTASKICO, OnTaskIco)
-	ON_COMMAND(IDM_RESTOREWINDOWS,OnShowWindow)
+	ON_COMMAND(IDM_TASKRESTOREWINDOWS, OnTaskShowWindow)
+	ON_COMMAND(IDM_TASKCLOSE, OnTaskClose)
 	ON_WM_DESTROY()
 	//	ON_WM_TIMER()
 	ON_WM_SIZE()
@@ -164,7 +166,7 @@ BOOL CPopADKillerDlg::OnInitDialog()
 	m_bMini = m_bMiniStart;
 	if (!m_bMini)
 	{
-		OnShowWindow();
+		OnTaskShowWindow();
 	}
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
@@ -296,8 +298,8 @@ LRESULT CPopADKillerDlg::OnTaskIco( WPARAM wParam, LPARAM lParam )
 			::GetCursorPos(lpoint);                    // 得到鼠标位置
 			CMenu menu;
 			menu.CreatePopupMenu();                    // 声明一个弹出式菜单
-			menu.AppendMenu(MF_STRING, WM_DESTROY, _T("退出"));
-			menu.AppendMenu(MF_STRING, IDM_RESTOREWINDOWS, _T("恢复"));
+			menu.AppendMenu(MF_STRING, IDM_TASKCLOSE, _T("退出"));
+			menu.AppendMenu(MF_STRING, IDM_TASKRESTOREWINDOWS, _T("恢复"));
 			menu.TrackPopupMenu(TPM_LEFTALIGN, lpoint->x ,lpoint->y, this);
 			HMENU hmenu = menu.Detach();
 			menu.DestroyMenu();
@@ -306,7 +308,7 @@ LRESULT CPopADKillerDlg::OnTaskIco( WPARAM wParam, LPARAM lParam )
 		break;
 	case WM_LBUTTONDBLCLK:                                 // 双击左键的处理
 		{
-			OnShowWindow();
+			OnTaskShowWindow();
 		}
 		break;
 	}
@@ -323,7 +325,7 @@ void CPopADKillerDlg::OnDestroy()
 }
 
 //显示窗体
-void CPopADKillerDlg::OnShowWindow()
+void CPopADKillerDlg::OnTaskShowWindow()
 {
 	m_bMini = false;
 	CRect rt;
@@ -332,6 +334,11 @@ void CPopADKillerDlg::OnShowWindow()
 	int cy = GetSystemMetrics(SM_CYFULLSCREEN/*SM_CYSCREEN*/);	//SM_CYFULLSCREEN 不包括状态栏, SM_CYSCREEN 包括状态栏
 	MoveWindow((cx - rt.Width()) / 2, (cy - rt.Height()) / 2, rt.Width(), rt.Height());
 	ShowWindow(SW_SHOWNORMAL);
+}
+
+void CPopADKillerDlg::OnTaskClose()
+{
+	SendMessage(WM_CLOSE);
 }
 
 

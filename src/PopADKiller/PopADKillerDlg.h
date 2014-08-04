@@ -57,7 +57,8 @@ public:
 	afx_msg void OnBnClickedBtnHandkill();
 	CString m_csOutput;
 	LRESULT OnTaskIco(WPARAM wParam, LPARAM lParam);
-	afx_msg void OnShowWindow();
+	afx_msg void OnTaskShowWindow();
+	afx_msg void OnTaskClose();
 private:
 	NOTIFYICONDATA m_nid;
 	bool m_bMiniStart;	// 启动程序最小化到系统托盘
